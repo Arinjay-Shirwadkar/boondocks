@@ -2,7 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-body { @apply bg-pitch text-cream font-comic min-h-screen; }
+*,
+*::before,
+*::after,
+html,
+body,
+input,
+button,
+select,
+textarea {
+  font-family: 'Comic Sans MS', 'Comic Sans', cursive, sans-serif !important;
+  box-sizing: border-box;
+}
+
+body {
+  @apply bg-pitch text-cream font-comic min-h-screen;
+  margin: 0;
+  padding: 0;
+  background-color: #000000;
+  color: #FFFDD0;
+}
 
 @layer components {
   .card-brutal  { @apply bg-ink border-4 border-crimson shadow-brutal p-6; }

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
+import { useAuth } from '../context/AuthContext';
 import PreferenceSliders, { DEFAULT_PREFERENCES, DEFAULT_WEIGHTS } from '../components/PreferenceSliders';
 
 const ROLES = [
@@ -12,6 +13,7 @@ const STEP_TITLES = ['The basics', 'Where are you at?', 'Your vibe'];
 
 export default function SignUpPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [step, setStep] = useState(1);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,7 +71,7 @@ export default function SignUpPage() {
     };
     try {
       const { data } = await api.post('/auth/signup', payload);
-      localStorage.setItem('token', data.token);
+      login(data.token, data.user);
       navigate(account.role === 'host' ? '/profile' : '/matches');
     } catch (err) {
       setError(err.response?.data?.message || 'Signup failed. Try again.');

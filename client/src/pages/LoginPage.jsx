@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useAuth } from "../context/AuthContext";
 
 // Boondoacks design tokens
 const C = { black: "#000000", red: "#DC143C", darkRed: "#8B0000", cream: "#FFFDD0" };
@@ -17,6 +18,7 @@ const inputStyle = {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,8 +32,7 @@ export default function LoginPage() {
     try {
       // Expected response: { token, user: { role, ... } }
       const { data } = await axios.post("/api/auth/login", form);
-      localStorage.setItem("token", data.token);
-      if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+      login(data.token, data.user);
       navigate(data.user?.role === "host" ? "/host" : "/matches");
     } catch (err) {
       setError(
