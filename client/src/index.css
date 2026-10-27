@@ -1,0 +1,14 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { @apply bg-pitch text-cream font-comic min-h-screen; }
+
+@layer components {
+  .card-brutal  { @apply bg-ink border-4 border-crimson shadow-brutal p-6; }
+  .input-brutal { @apply w-full bg-black text-cream border-4 border-crimson px-3 py-2 font-bold placeholder:text-cream/40 focus:outline-none focus:bg-crimson-dark/30; }
+  .btn-brutal   { @apply bg-crimson text-cream border-4 border-cream px-5 py-2 font-black uppercase tracking-wide shadow-brutal-cream active:translate-x-1 active:translate-y-1 active:shadow-none disabled:opacity-40 disabled:cursor-not-allowed; }
+  .btn-ghost    { @apply bg-black text-cream border-4 border-crimson px-5 py-2 font-black uppercase hover:bg-crimson-dark disabled:opacity-40; }
+  .chip         { @apply border-4 border-crimson bg-black text-cream px-3 py-1 font-bold uppercase text-sm hover:bg-crimson-dark; }
+  .chip-on      { @apply bg-crimson border-cream; }
+}
