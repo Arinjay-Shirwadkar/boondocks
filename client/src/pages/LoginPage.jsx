@@ -66,14 +66,15 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <label className="flex flex-col gap-1 font-bold">
-            Email
+            Email or Phone Number
             <input
-              type="email"
+              type="text"
               name="email"
               value={form.email}
               onChange={handleChange}
               required
-              autoComplete="email"
+              placeholder="e.g. alex@example.com or 9876543210"
+              autoComplete="username"
               className="p-3 text-lg"
               style={inputStyle}
             />
@@ -87,6 +88,7 @@ export default function LoginPage() {
               value={form.password}
               onChange={handleChange}
               required
+              placeholder="••••••••"
               autoComplete="current-password"
               className="p-3 text-lg"
               style={inputStyle}

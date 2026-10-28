@@ -3,6 +3,7 @@ import Request from '../models/Request.js';
 import Property from '../models/Property.js';
 import User from '../models/User.js';
 import { protect } from '../middleware/auth.js';
+import { calculateMatchScore } from '../utils/matcher.js';
 
 const router = express.Router();
 
@@ -218,6 +219,73 @@ const sendMessageHandler = async (req, res) => {
 
 router.post('/:id/message', protect, sendMessageHandler);
 router.post('/:id/messages', protect, sendMessageHandler);
+
+// @route   GET /api/requests/:id/chat
+// @desc    Fetch updated conversation history and request chat state
+// @access  Private (Seeker or Host of this request)
+router.get('/:id/chat', protect, async (req, res) => {
+  try {
+    const request = await Request.findById(req.params.id)
+      .populate('propertyId')
+      .populate('hostId', 'name email phone')
+      .populate('seekerId', 'name email phone');
+
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found.' });
+    }
+
+    const userIdStr = String(req.user._id);
+    const isSeeker = String(request.seekerId?._id || request.seekerId) === userIdStr;
+    const isHost = String(request.hostId?._id || request.hostId) === userIdStr;
+
+    if (!isSeeker && !isHost) {
+      return res.status(403).json({ message: 'Not authorized to view this chat.' });
+    }
+
+    res.json(formatRequestContacts(request));
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Server error fetching chat history.' });
+  }
+});
+
+// @route   GET /api/requests/:id/applicant
+// @desc    Inspector: Get applicant profile and calculate compatibility against requested property
+// @access  Private (Host only)
+router.get('/:id/applicant', protect, async (req, res) => {
+  try {
+    const request = await Request.findById(req.params.id);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found.' });
+    }
+
+    if (String(request.hostId) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Only the host can inspect applicant details.' });
+    }
+
+    const [seeker, property] = await Promise.all([
+      User.findById(request.seekerId).select('-password'),
+      Property.findById(request.propertyId),
+    ]);
+
+    if (!seeker || !property) {
+      return res.status(404).json({ message: 'Applicant or property not found.' });
+    }
+
+    const match = calculateMatchScore(seeker, property);
+
+    res.json({
+      requestStatus: request.status,
+      contactUnlocked: request.contactUnlocked,
+      seeker,
+      property,
+      matchScore: match.matchScore,
+      distanceKm: match.distanceKm,
+      breakdown: match.breakdown,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message || 'Server error inspecting applicant.' });
+  }
+});
 
 // @route   POST /api/requests/:id/reveal-contact
 // @desc    Opt-in to reveal mutual contact details (unlocked only when both agree)

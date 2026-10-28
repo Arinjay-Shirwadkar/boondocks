@@ -1,13 +1,13 @@
 import { calculateMatchScore, calculateDistanceKm } from '../utils/matcher.js';
 
-console.log('--- Testing Matching Engine ---');
+console.log('--- Testing Updated Matching Engine (No Drugs + Budget Compatibility) ---');
 
 const mockUser = {
   preferences: {
     food: 'veg',
-    alcohol: false,
-    smoking: true,
-    drugs: false,
+    vices: 'smoking',
+    minPrice: 5000,
+    maxPrice: 12000,
     pets: true,
     guests: 'occasional',
     sleepTime: 'early-bird',
@@ -15,6 +15,7 @@ const mockUser = {
   priorityWeights: {
     food: 5,
     vices: 4,
+    price: 4,
     pets: 3,
     guests: 2,
     sleepTime: 5,
@@ -28,6 +29,7 @@ const mockProperties = [
   {
     _id: 'prop1',
     title: 'Pure Veg Early Sleeper Haven',
+    rentPerHead: 8500, // Within 5000-12000
     rules: {
       foodAllowed: 'veg',
       viceTolerance: 'smoking',
@@ -42,6 +44,7 @@ const mockProperties = [
   {
     _id: 'prop2',
     title: 'Party Animal Night Owl Flat',
+    rentPerHead: 25000, // Significantly above 12000
     rules: {
       foodAllowed: 'non-veg',
       viceTolerance: 'none',
@@ -56,9 +59,10 @@ const mockProperties = [
   {
     _id: 'prop3',
     title: 'Flexible Modern PG',
+    rentPerHead: 10000, // Within budget
     rules: {
       foodAllowed: 'any',
-      viceTolerance: 'all',
+      viceTolerance: 'all-legal',
       petsAllowed: true,
       guestPolicy: 'occasional',
       sleepPolicy: 'flexible',
@@ -99,9 +103,13 @@ if (matches[0].matchScore < 90) {
   throw new Error(`Expected prop1 to have >= 90% match, got ${matches[0].matchScore}%`);
 }
 
+const priceBreakdown = matches[0].breakdown.find((b) => b.category === 'price');
+if (!priceBreakdown || priceBreakdown.score !== 100) {
+  throw new Error('Expected price breakdown score of 100 for prop1');
+}
+
 if (matches[2].property !== 'Party Animal Night Owl Flat') {
   throw new Error('Expected least compatible property to be ranked last.');
 }
 
 console.log('✅ Matching Algorithm Test Passed Successfully!');
-

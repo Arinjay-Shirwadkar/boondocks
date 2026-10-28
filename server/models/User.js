@@ -25,7 +25,8 @@ const userSchema = new mongoose.Schema(
     },
     phone: {
       type: String,
-      default: '',
+      unique: true,
+      sparse: true,
       trim: true,
     },
     area: {
@@ -34,8 +35,19 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     location: {
-      address: { type: String, default: '' },
-      coordinates: { type: [Number], default: undefined }, // [longitude, latitude]
+      type: {
+        type: String,
+        enum: ['Point'],
+        default: 'Point',
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        default: [72.8777, 19.0760],
+      },
+      address: {
+        type: String,
+        default: '',
+      },
     },
     radiusKm: {
       type: Number,
@@ -47,15 +59,16 @@ const userSchema = new mongoose.Schema(
         enum: ['veg', 'non-veg', 'any'],
         default: 'any',
       },
+      vices: {
+        type: String,
+        enum: ['none', 'alcohol', 'smoking', 'all-legal'],
+        default: 'none',
+      },
       alcohol: {
         type: Boolean,
         default: false,
       },
       smoking: {
-        type: Boolean,
-        default: false,
-      },
-      drugs: {
         type: Boolean,
         default: false,
       },
@@ -73,10 +86,21 @@ const userSchema = new mongoose.Schema(
         enum: ['early-bird', 'night-owl'],
         default: 'early-bird',
       },
+      minPrice: {
+        type: Number,
+        default: 3000,
+        min: 0,
+      },
+      maxPrice: {
+        type: Number,
+        default: 30000,
+        min: 0,
+      },
     },
     priorityWeights: {
       food: { type: Number, min: 1, max: 5, default: 3 },
       vices: { type: Number, min: 1, max: 5, default: 3 },
+      price: { type: Number, min: 1, max: 5, default: 3 },
       pets: { type: Number, min: 1, max: 5, default: 3 },
       guests: { type: Number, min: 1, max: 5, default: 3 },
       sleepTime: { type: Number, min: 1, max: 5, default: 3 },
@@ -87,6 +111,8 @@ const userSchema = new mongoose.Schema(
   }
 );
 
+// Index for geospatial queries
+userSchema.index({ 'location.coordinates': '2dsphere' });
+
 const User = mongoose.model('User', userSchema);
 export default User;
-

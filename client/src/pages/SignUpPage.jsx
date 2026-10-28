@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import PreferenceSliders, { DEFAULT_PREFERENCES, DEFAULT_WEIGHTS } from '../components/PreferenceSliders';
+import MapPicker from '../components/MapPicker';
 
 const ROLES = [
   { value: 'seeker', label: 'Seeker', hint: 'I need a bed' },
@@ -18,8 +19,8 @@ export default function SignUpPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [account, setAccount] = useState({ name: '', email: '', password: '', role: 'seeker' });
-  const [loc, setLoc] = useState({ area: '', radiusKm: 5, coordinates: null });
+  const [account, setAccount] = useState({ name: '', email: '', phone: '', password: '', role: 'seeker' });
+  const [loc, setLoc] = useState({ area: 'Mumbai, Maharashtra', radiusKm: 5, coordinates: [72.8777, 19.0760] });
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
 
@@ -29,9 +30,12 @@ export default function SignUpPage() {
     if (step === 1) {
       if (!account.name.trim()) return 'Name is required.';
       if (!/^\S+@\S+\.\S+$/.test(account.email)) return 'Enter a valid email.';
+      if (!account.phone.trim()) return 'Phone number is required.';
       if (account.password.length < 8) return 'Password must be at least 8 characters.';
     }
-    if (step === 2 && !loc.area.trim()) return 'Tell us your area (or skip, if you are a host).';
+    if (step === 2 && !canSkipLocation && !loc.area.trim()) {
+      return 'Please click on the map to drop a pin for your preferred area.';
+    }
     return '';
   };
 
@@ -48,26 +52,20 @@ export default function SignUpPage() {
     setStep(3);
   };
 
-  const useMyLocation = () => {
-    if (!navigator.geolocation) return setError('Geolocation not supported here.');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setLoc((l) => ({ ...l, coordinates: [pos.coords.longitude, pos.coords.latitude] })),
-      () => setError('Could not get your location. Type your area instead.')
-    );
-  };
-
   const submit = async () => {
     setLoading(true);
     setError('');
     const payload = {
       ...account,
       area: loc.area.trim(),
-      location: loc.coordinates
-        ? { address: loc.area.trim(), coordinates: loc.coordinates }
-        : { address: loc.area.trim() },
+      location: {
+        type: 'Point',
+        coordinates: loc.coordinates || [72.8777, 19.0760],
+        address: loc.area.trim(),
+      },
       radiusKm: loc.radiusKm,
       preferences,
-      priorityWeights: weights
+      priorityWeights: weights,
     };
     try {
       const { data } = await api.post('/auth/signup', payload);
@@ -84,7 +82,7 @@ export default function SignUpPage() {
     <main className="min-h-screen flex items-start justify-center px-4 py-10">
       <div className="w-full max-w-2xl">
         <h1 className="text-5xl font-black uppercase text-crimson mb-1">Boondocks</h1>
-        <p className="mb-6 font-bold text-cream-dim">Find your people. Then find the bed.</p>
+        <p className="mb-6 font-bold text-cream-dim">Find your people.</p>
 
         {/* progress */}
         <div className="flex gap-2 mb-6">
@@ -108,19 +106,41 @@ export default function SignUpPage() {
           {/* STEP 1 */}
           {step === 1 && (
             <div className="space-y-4">
-              <input className="input-brutal" placeholder="Name" value={account.name}
-                onChange={(e) => setAccount({ ...account, name: e.target.value })} />
-              <input className="input-brutal" type="email" placeholder="Email" value={account.email}
-                onChange={(e) => setAccount({ ...account, email: e.target.value })} />
-              <input className="input-brutal" type="password" placeholder="Password (min 8 chars)" value={account.password}
-                onChange={(e) => setAccount({ ...account, password: e.target.value })} />
+              <input
+                className="input-brutal"
+                placeholder="Name"
+                value={account.name}
+                onChange={(e) => setAccount({ ...account, name: e.target.value })}
+              />
+              <input
+                className="input-brutal"
+                type="email"
+                placeholder="Email"
+                value={account.email}
+                onChange={(e) => setAccount({ ...account, email: e.target.value })}
+              />
+              <input
+                className="input-brutal"
+                type="tel"
+                placeholder="Phone number (e.g. 9876543210)"
+                value={account.phone}
+                onChange={(e) => setAccount({ ...account, phone: e.target.value })}
+              />
+              <input
+                className="input-brutal"
+                type="password"
+                placeholder="Password (min 8 chars)"
+                value={account.password}
+                onChange={(e) => setAccount({ ...account, password: e.target.value })}
+              />
 
               <div>
                 <p className="font-black uppercase mb-2">I am a…</p>
                 <div className="grid grid-cols-3 gap-3">
                   {ROLES.map((r) => (
                     <button
-                      type="button" key={r.value}
+                      type="button"
+                      key={r.value}
                       onClick={() => setAccount({ ...account, role: r.value })}
                       className={`border-4 p-3 text-left font-black uppercase ${
                         account.role === r.value
@@ -137,60 +157,69 @@ export default function SignUpPage() {
             </div>
           )}
 
-          {/* STEP 2 */}
+          {/* STEP 2 - INTERACTIVE MAP */}
           {step === 2 && (
             <div className="space-y-5">
-              <input className="input-brutal" placeholder="Area name (e.g. Kothrud, Pune)" value={loc.area}
-                onChange={(e) => setLoc({ ...loc, area: e.target.value })} />
+              <p className="text-sm font-bold text-cream-dim">
+                Drop a pin on the map to indicate your preferred location or college area:
+              </p>
 
-              <button type="button" className="btn-ghost" onClick={useMyLocation}>
-                {loc.coordinates ? '✔ Location captured' : 'Use my location'}
-              </button>
-
-              <div>
-                <div className="flex justify-between font-black uppercase">
-                  <span>Search radius</span>
-                  <span className="text-crimson">{loc.radiusKm} km</span>
-                </div>
-                <input type="range" min="1" max="50" value={loc.radiusKm}
-                  onChange={(e) => setLoc({ ...loc, radiusKm: Number(e.target.value) })}
-                  className="w-full mt-2 accent-crimson" />
-              </div>
+              <MapPicker
+                coordinates={loc.coordinates}
+                address={loc.area}
+                radiusKm={loc.radiusKm}
+                onChange={({ coordinates, address, radiusKm }) => {
+                  setLoc({ area: address, coordinates, radiusKm });
+                }}
+                onRadiusChange={(radiusKm) => setLoc((l) => ({ ...l, radiusKm }))}
+              />
 
               {canSkipLocation && (
-                <p className="text-sm font-bold text-cream-dim">
-                  Hosts can skip this. Your listing carries its own address.
+                <p className="text-sm font-bold text-cream-dim border-2 border-dashed border-crimson p-2">
+                  Hosts can skip this. Your listing carries its own property location.
                 </p>
               )}
             </div>
           )}
 
-          {/* STEP 3 */}
+          {/* STEP 3 - PREFERENCES */}
           {step === 3 && (
             <PreferenceSliders
-              preferences={preferences} weights={weights}
-              onPreferencesChange={setPreferences} onWeightsChange={setWeights}
+              preferences={preferences}
+              weights={weights}
+              onPreferencesChange={setPreferences}
+              onWeightsChange={setWeights}
             />
           )}
 
           {error && (
-            <p className="mt-5 border-4 border-crimson bg-crimson-dark p-3 font-black">{error}</p>
+            <p className="mt-5 border-4 border-crimson bg-crimson-dark p-3 font-black text-cream">{error}</p>
           )}
 
           {/* NAV */}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-            <button type="button" className="btn-ghost"
-              onClick={() => { setError(''); setStep((s) => s - 1); }}
-              disabled={step === 1 || loading}>
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={() => {
+                setError('');
+                setStep((s) => s - 1);
+              }}
+              disabled={step === 1 || loading}
+            >
               Back
             </button>
 
             <div className="flex gap-3">
               {step === 2 && canSkipLocation && (
-                <button type="button" className="btn-ghost" onClick={skipLocation}>Skip</button>
+                <button type="button" className="btn-ghost" onClick={skipLocation}>
+                  Skip
+                </button>
               )}
               {step < 3 ? (
-                <button type="button" className="btn-brutal" onClick={next}>Next</button>
+                <button type="button" className="btn-brutal" onClick={next}>
+                  Next
+                </button>
               ) : (
                 <button type="button" className="btn-brutal" onClick={submit} disabled={loading}>
                   {loading ? 'Creating…' : 'Create account'}

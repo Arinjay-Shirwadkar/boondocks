@@ -83,7 +83,28 @@ async function runTests() {
       throw new Error('Expected 401 Unauthorized for /api/user/profile without token');
     }
 
-    // 6. Undefined API route
+    // 6. Protected property edit route without token
+    const unauthEditProp = await makeRequest(testServer, '/api/properties/test1234', { method: 'PUT', body: {} });
+    console.log(`[PASS] PUT /api/properties/:id (unauthorized) -> Status ${unauthEditProp.status}:`, unauthEditProp.data);
+    if (unauthEditProp.status !== 401) {
+      throw new Error('Expected 401 Unauthorized for PUT /api/properties/:id without token');
+    }
+
+    // 7. Protected chat route without token
+    const unauthChat = await makeRequest(testServer, '/api/requests/test1234/chat');
+    console.log(`[PASS] GET /api/requests/:id/chat (unauthorized) -> Status ${unauthChat.status}:`, unauthChat.data);
+    if (unauthChat.status !== 401) {
+      throw new Error('Expected 401 Unauthorized for GET /api/requests/:id/chat without token');
+    }
+
+    // 8. Protected applicant inspector route without token
+    const unauthApplicant = await makeRequest(testServer, '/api/requests/test1234/applicant');
+    console.log(`[PASS] GET /api/requests/:id/applicant (unauthorized) -> Status ${unauthApplicant.status}:`, unauthApplicant.data);
+    if (unauthApplicant.status !== 401) {
+      throw new Error('Expected 401 Unauthorized for GET /api/requests/:id/applicant without token');
+    }
+
+    // 9. Undefined API route
     const notFound = await makeRequest(testServer, '/api/undefined-endpoint');
     console.log(`[PASS] GET /api/undefined-endpoint -> Status ${notFound.status}:`, notFound.data);
     if (notFound.status !== 404) {
