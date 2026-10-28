@@ -19,7 +19,7 @@ export default function SignUpPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [account, setAccount] = useState({ name: '', email: '', phone: '', password: '', role: 'seeker' });
+  const [account, setAccount] = useState({ name: '', email: '', phone: '', password: '', role: 'seeker', gender: '' });
   const [loc, setLoc] = useState({ area: 'Mumbai, Maharashtra', radiusKm: 5, coordinates: [72.8777, 19.0760] });
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
@@ -32,6 +32,7 @@ export default function SignUpPage() {
       if (!/^\S+@\S+\.\S+$/.test(account.email)) return 'Enter a valid email.';
       if (!account.phone.trim()) return 'Phone number is required.';
       if (account.password.length < 8) return 'Password must be at least 8 characters.';
+      if (!account.gender) return 'Please select your gender.';
     }
     if (step === 2 && !canSkipLocation && !loc.area.trim()) {
       return 'Please click on the map to drop a pin for your preferred area.';
@@ -133,6 +134,30 @@ export default function SignUpPage() {
                 value={account.password}
                 onChange={(e) => setAccount({ ...account, password: e.target.value })}
               />
+
+              <div>
+                <p className="font-black uppercase mb-2">Gender *</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { value: 'male', label: 'Male' },
+                    { value: 'female', label: 'Female' },
+                    { value: 'other', label: 'Non-Binary / Other' },
+                  ].map((g) => (
+                    <button
+                      type="button"
+                      key={g.value}
+                      onClick={() => setAccount({ ...account, gender: g.value })}
+                      className={`border-4 p-3 text-center font-black uppercase text-sm ${
+                        account.gender === g.value
+                          ? 'bg-crimson border-cream text-cream'
+                          : 'bg-black border-crimson text-cream hover:bg-crimson-dark'
+                      }`}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div>
                 <p className="font-black uppercase mb-2">I am a…</p>

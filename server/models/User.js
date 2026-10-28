@@ -23,6 +23,12 @@ const userSchema = new mongoose.Schema(
       enum: ['seeker', 'host', 'both'],
       default: 'seeker',
     },
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'other'],
+      required: [true, 'Gender is required'],
+      default: 'other',
+    },
     phone: {
       type: String,
       unique: true,
@@ -113,6 +119,49 @@ const userSchema = new mongoose.Schema(
 
 // Index for geospatial queries
 userSchema.index({ 'location.coordinates': '2dsphere' });
+
+// Cascade delete properties and requests when a user is deleted
+userSchema.pre('findOneAndDelete', async function () {
+  try {
+    const user = await this.model.findOne(this.getQuery());
+    if (user) {
+      const userId = user._id;
+      await mongoose.model('Property').deleteMany({ hostId: userId });
+      await mongoose.model('Request').deleteMany({
+        $or: [{ hostId: userId }, { seekerId: userId }],
+      });
+    }
+  } catch (err) {
+    console.error('Error in user findOneAndDelete cascade hook:', err);
+  }
+});
+
+userSchema.pre('deleteOne', { document: true, query: false }, async function () {
+  try {
+    const userId = this._id;
+    await mongoose.model('Property').deleteMany({ hostId: userId });
+    await mongoose.model('Request').deleteMany({
+      $or: [{ hostId: userId }, { seekerId: userId }],
+    });
+  } catch (err) {
+    console.error('Error in user deleteOne document cascade hook:', err);
+  }
+});
+
+userSchema.pre('deleteOne', { document: false, query: true }, async function () {
+  try {
+    const user = await this.model.findOne(this.getQuery());
+    if (user) {
+      const userId = user._id;
+      await mongoose.model('Property').deleteMany({ hostId: userId });
+      await mongoose.model('Request').deleteMany({
+        $or: [{ hostId: userId }, { seekerId: userId }],
+      });
+    }
+  } catch (err) {
+    console.error('Error in user deleteOne query cascade hook:', err);
+  }
+});
 
 const User = mongoose.model('User', userSchema);
 export default User;

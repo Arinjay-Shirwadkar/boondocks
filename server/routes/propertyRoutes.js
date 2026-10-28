@@ -63,6 +63,7 @@ router.post('/', protect, async (req, res) => {
     const {
       title,
       type = 'PG',
+      genderAllowed = 'unisex',
       location,
       rentPerHead,
       totalBeds,
@@ -100,6 +101,7 @@ router.post('/', protect, async (req, res) => {
       hostId: req.user._id,
       title,
       type,
+      genderAllowed: ['male-only', 'female-only', 'unisex'].includes(genderAllowed) ? genderAllowed : 'unisex',
       location,
       rentPerHead: rent,
       totalBeds: total,
@@ -172,6 +174,7 @@ router.put('/:id', protect, async (req, res) => {
     const {
       title,
       type,
+      genderAllowed,
       location,
       rentPerHead,
       totalBeds,
@@ -183,6 +186,9 @@ router.put('/:id', protect, async (req, res) => {
 
     if (title !== undefined) property.title = title;
     if (type !== undefined) property.type = type;
+    if (genderAllowed !== undefined && ['male-only', 'female-only', 'unisex'].includes(genderAllowed)) {
+      property.genderAllowed = genderAllowed;
+    }
     if (location !== undefined) {
       property.location = {
         type: 'Point',

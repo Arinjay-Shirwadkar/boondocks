@@ -1,18 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import axios from "axios";
+import { useCallback, useEffect, useState } from "react";
+import api from "../api";
 import MapPicker from "../components/MapPicker";
 import ChatPanel from "../components/ChatPanel";
 
 // Boondocks design tokens
 const C = { black: "#000000", red: "#DC143C", darkRed: "#8B0000", cream: "#FFFDD0" };
 const FONT = "'Comic Sans MS', 'Comic Sans', cursive, sans-serif";
-
-const api = axios.create();
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
 
 const inputStyle = {
   fontFamily: FONT,
@@ -48,6 +41,7 @@ const AVAILABLE_AMENITIES = [
 const EMPTY_FORM = {
   title: "",
   type: "PG",
+  genderAllowed: "unisex",
   address: "Mumbai, Maharashtra",
   coordinates: [72.8777, 19.0760],
   rentPerHead: "",
@@ -93,7 +87,7 @@ function PropertyForm({ onCreated }) {
     setUploadingImages(true);
     setError("");
     try {
-      const res = await api.post("/api/properties/upload", formData, {
+      const res = await api.post("/properties/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       if (res.data?.urls) {
@@ -138,9 +132,10 @@ function PropertyForm({ onCreated }) {
     }
     setSaving(true);
     try {
-      await api.post("/api/properties", {
+      await api.post("/properties", {
         title: form.title,
         type: form.type,
+        genderAllowed: form.genderAllowed || "unisex",
         location: {
           type: "Point",
           coordinates: form.coordinates || [72.8777, 19.0760],
@@ -182,6 +177,21 @@ function PropertyForm({ onCreated }) {
         <select name="type" value={form.type} onChange={set} className="p-2" style={inputStyle}>
           <option value="PG">PG</option>
           <option value="Sharing Flat">Sharing Flat</option>
+        </select>
+      </Field>
+
+      <Field label="Allowed Gender">
+        <select
+          name="genderAllowed"
+          value={form.genderAllowed}
+          onChange={set}
+          required
+          className="p-2"
+          style={inputStyle}
+        >
+          <option value="male-only">Male Only</option>
+          <option value="female-only">Female Only</option>
+          <option value="unisex">Unisex / Any</option>
         </select>
       </Field>
 
@@ -378,6 +388,7 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
   const [form, setForm] = useState({
     title: property.title || "",
     type: property.type || "PG",
+    genderAllowed: property.genderAllowed || "unisex",
     address: property.location?.address || "",
     coordinates: property.location?.coordinates || [72.8777, 19.0760],
     rentPerHead: property.rentPerHead || 0,
@@ -410,7 +421,7 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
     setUploadingImages(true);
     setError("");
     try {
-      const res = await api.post("/api/properties/upload", formData, {
+      const res = await api.post("/properties/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       if (res.data?.urls) {
@@ -455,9 +466,10 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
     }
     setSaving(true);
     try {
-      await api.put(`/api/properties/${property._id}`, {
+      await api.put(`/properties/${property._id}`, {
         title: form.title,
         type: form.type,
+        genderAllowed: form.genderAllowed || "unisex",
         location: {
           type: "Point",
           coordinates: form.coordinates || [72.8777, 19.0760],
@@ -507,6 +519,21 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
             <select name="type" value={form.type} onChange={set} className="p-2" style={inputStyle}>
               <option value="PG">PG</option>
               <option value="Sharing Flat">Sharing Flat</option>
+            </select>
+          </Field>
+
+          <Field label="Allowed Gender">
+            <select
+              name="genderAllowed"
+              value={form.genderAllowed}
+              onChange={set}
+              required
+              className="p-2"
+              style={inputStyle}
+            >
+              <option value="male-only">Male Only</option>
+              <option value="female-only">Female Only</option>
+              <option value="unisex">Unisex / Any</option>
             </select>
           </Field>
 
@@ -709,7 +736,7 @@ function ApplicantInspectorModal({ requestId, onClose }) {
     async function fetchApplicant() {
       setLoading(true);
       try {
-        const res = await api.get(`/api/requests/${requestId}/applicant`);
+        const res = await api.get(`/requests/${requestId}/applicant`);
         setData(res.data);
       } catch (err) {
         setError(err.response?.data?.message || "Failed to load applicant profile.");
@@ -924,7 +951,7 @@ export default function HostPage() {
   const load = useCallback(async () => {
     setError("");
     try {
-      const [p, r] = await Promise.all([api.get("/api/properties/mine"), api.get("/api/requests/host")]);
+      const [p, r] = await Promise.all([api.get("/properties/mine"), api.get("/requests/host")]);
       setProperties(p.data);
       setRequests(r.data);
     } catch (err) {
@@ -940,7 +967,7 @@ export default function HostPage() {
 
   const decide = async (id, status) => {
     try {
-      await api.put(`/api/requests/${id}/status`, { status });
+      await api.put(`/requests/${id}/status`, { status });
       setRequests((prev) => prev.map((r) => (r._id === id ? { ...r, status } : r)));
     } catch (err) {
       setError(err.response?.data?.message || `Could not mark request ${status}.`);
@@ -991,9 +1018,21 @@ export default function HostPage() {
                     <div className="flex flex-wrap justify-between items-start gap-2">
                       <div>
                         <h3 className="text-2xl font-bold">{p.title}</h3>
-                        <span className="px-3 py-0.5 text-xs font-bold" style={{ background: C.cream, color: C.black }}>
-                          {p.type}
-                        </span>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          <span className="px-3 py-0.5 text-xs font-bold" style={{ background: C.cream, color: C.black }}>
+                            {p.type}
+                          </span>
+                          <span
+                            className="px-3 py-0.5 text-xs font-bold uppercase border-2 border-[#DC143C]"
+                            style={{ background: C.black, color: C.cream }}
+                          >
+                            {p.genderAllowed === 'male-only'
+                              ? 'Male Only'
+                              : p.genderAllowed === 'female-only'
+                              ? 'Female Only'
+                              : 'Unisex / Any'}
+                          </span>
+                        </div>
                       </div>
                       <button
                         type="button"

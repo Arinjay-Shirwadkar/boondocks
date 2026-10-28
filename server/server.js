@@ -26,8 +26,25 @@ if (!fs.existsSync(uploadsDir)) {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB and run startup cleanup check for orphaned properties & requests
+connectDB().then(async () => {
+  try {
+    const User = (await import('./models/User.js')).default;
+    const Property = (await import('./models/Property.js')).default;
+    const Request = (await import('./models/Request.js')).default;
+    const users = await User.find().select('_id');
+    const userIds = users.map((u) => u._id);
+    const orphanProps = await Property.deleteMany({ hostId: { $nin: userIds } });
+    const orphanReqs = await Request.deleteMany({
+      $or: [{ hostId: { $nin: userIds } }, { seekerId: { $nin: userIds } }],
+    });
+    if (orphanProps.deletedCount > 0 || orphanReqs.deletedCount > 0) {
+      console.log(`[Startup Cleanup] Purged ${orphanProps.deletedCount} orphaned properties and ${orphanReqs.deletedCount} orphaned requests.`);
+    }
+  } catch (err) {
+    // Non-blocking cleanup logging
+  }
+}).catch(() => {});
 
 // Middleware
 app.use(cors({
