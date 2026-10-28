@@ -17,8 +17,24 @@ router.get('/', protect, async (req, res) => {
 
     // Calculate match score and breakdown for each property
     const matches = properties
-      // Exclude properties where the logged in user is the host and strictly filter out properties with <= 0 available beds
-      .filter((prop) => String(prop.hostId?._id || prop.hostId) !== String(user._id) && Number(prop.availableBeds) > 0)
+      .filter((prop) => {
+        // Exclude properties where the logged in user is the host
+        if (String(prop.hostId?._id || prop.hostId) === String(user._id)) return false;
+
+        // Strictly filter out full properties (0 beds left)
+        if (Number(prop.availableBeds) <= 0) return false;
+
+        // GENDER HARD FILTER:
+        // If property is male-only and seeker is female (or vice versa), strictly exclude.
+        // "Unisex" properties remain visible to everyone.
+        const seekerGender = String(user.gender || 'other').toLowerCase();
+        const propGender = String(prop.genderAllowed || 'unisex').toLowerCase();
+
+        if (propGender === 'male-only' && seekerGender !== 'male') return false;
+        if (propGender === 'female-only' && seekerGender !== 'female') return false;
+
+        return true;
+      })
       .map((property) => {
         const { matchScore, distanceKm, breakdown } = calculateMatchScore(user, property);
         return {

@@ -1,10 +1,9 @@
 import { Link } from "react-router-dom";
-import PacmanRetro from "../components/PacmanRetro";
 
 /* ------------------------------------------------------------------ */
-/* Boondocks landing page                                              */
+/* Boondocks landing page                                             */
 /* Tailwind (arbitrary values, no config needed). Routes assumed:      */
-/*   /signup (seeker)   /host-signup (host)   /login                   */
+/*   /signup (seeker)   /host-signup (host)   /login                  */
 /* ------------------------------------------------------------------ */
 
 const FONT = { fontFamily: '"Comic Sans MS", "Comic Sans", cursive, sans-serif' };
@@ -112,7 +111,6 @@ function Hero() {
     <section className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-8 lg:grid-cols-[1.25fr_1fr]">
       <div>
         <p className="mb-3 text-sm font-bold uppercase text-[#DC143C]">Roommates, without the weird part.</p>
-        <PacmanRetro />
 
         <h1
           className="font-bold uppercase leading-[0.9] tracking-tight text-[#FFFDD0]"

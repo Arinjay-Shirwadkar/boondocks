@@ -14,11 +14,13 @@ const withDefaults = (user) => ({
 
 /* ---------- small pieces ---------- */
 
-function AccountBlock({ user }) {
+function AccountBlock({ user, selectedGender, onGenderChange, genderSaveStatus }) {
+  const GENDER_LABELS = { male: 'Male', female: 'Female', other: 'Non-Binary / Other' };
   const rows = [
     ['Name', user.name],
     ['Email', user.email],
     ['Role', ROLE_LABELS[user.role] || user.role],
+    ['Current Gender', GENDER_LABELS[user.gender] || 'Non-Binary / Other'],
     ['Area', user.area || user.location?.address || 'Not set'],
     ['Search radius', user.radiusKm != null ? `${user.radiusKm} km` : 'Not set'],
   ];
@@ -34,6 +36,41 @@ function AccountBlock({ user }) {
           </div>
         ))}
       </dl>
+
+      {/* Required Gender Selector */}
+      <div className="mt-5 border-4 border-crimson p-4 bg-black">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div>
+            <h3 className="text-lg font-bold uppercase text-cream">Required Gender Preference</h3>
+            <p className="text-xs text-cream-dim">Used by the matching engine to enforce gender constraints for properties.</p>
+          </div>
+          <span className="text-xs font-bold text-cream">
+            {genderSaveStatus === 'saving' && 'Saving gender…'}
+            {genderSaveStatus === 'saved' && '✔ Gender updated'}
+            {genderSaveStatus === 'error' && <span className="text-crimson">Failed to update gender.</span>}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { value: 'male', label: 'Male' },
+            { value: 'female', label: 'Female' },
+            { value: 'other', label: 'Non-Binary / Other' },
+          ].map((g) => (
+            <button
+              type="button"
+              key={g.value}
+              onClick={() => onGenderChange(g.value)}
+              className={`border-4 p-2.5 text-center font-black uppercase text-sm transition-transform ${
+                selectedGender === g.value
+                  ? 'bg-crimson border-cream text-cream'
+                  : 'bg-black border-crimson text-cream hover:bg-crimson-dark'
+              }`}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }
@@ -88,6 +125,23 @@ export default function ProfilePage() {
   });
   const [locSaveStatus, setLocSaveStatus] = useState('idle');
 
+  // Gender state
+  const [selectedGender, setSelectedGender] = useState('other');
+  const [genderSaveStatus, setGenderSaveStatus] = useState('idle');
+
+  const saveGender = async (newGender) => {
+    setSelectedGender(newGender);
+    setGenderSaveStatus('saving');
+    try {
+      const { data } = await api.put('/user/profile', { gender: newGender });
+      setUser((prev) => ({ ...prev, gender: data.gender || newGender }));
+      setGenderSaveStatus('saved');
+      setTimeout(() => setGenderSaveStatus('idle'), 2500);
+    } catch {
+      setGenderSaveStatus('error');
+    }
+  };
+
   const applyUser = useCallback((u) => {
     const next = withDefaults(u);
     setUser(u);
@@ -96,6 +150,7 @@ export default function ProfilePage() {
     setBaseline(JSON.stringify(next));
 
     if (u) {
+      setSelectedGender(u.gender || 'other');
       const coords = u.location?.coordinates || [72.8777, 19.0760];
       setUserLocation({
         coordinates: coords,
@@ -198,7 +253,12 @@ export default function ProfilePage() {
 
       {!loading && !loadError && user && (
         <div className="flex flex-col gap-8 max-w-4xl">
-          <AccountBlock user={user} />
+          <AccountBlock
+            user={user}
+            selectedGender={selectedGender}
+            onGenderChange={saveGender}
+            genderSaveStatus={genderSaveStatus}
+          />
 
           {/* Interactive Map & Search Radius Section */}
           <section className="card-brutal p-5 flex flex-col gap-5" style={{ borderRadius: 0 }}>

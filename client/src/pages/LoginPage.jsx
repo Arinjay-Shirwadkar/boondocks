@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../api";
 import { useAuth } from "../context/AuthContext";
 
 // Boondoacks design tokens
@@ -31,7 +31,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       // Expected response: { token, user: { role, ... } }
-      const { data } = await axios.post("/api/auth/login", form);
+      const { data } = await api.post("/auth/login", form);
       login(data.token, data.user);
       navigate(data.user?.role === "host" ? "/host" : "/matches");
     } catch (err) {

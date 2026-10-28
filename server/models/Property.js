@@ -17,6 +17,12 @@ const propertySchema = new mongoose.Schema(
       enum: ['PG', 'Sharing Flat'],
       default: 'PG',
     },
+    genderAllowed: {
+      type: String,
+      enum: ['male-only', 'female-only', 'unisex'],
+      required: [true, 'Allowed gender is required'],
+      default: 'unisex',
+    },
     location: {
       type: {
         type: String,
