@@ -34,7 +34,7 @@ export default function Navbar() {
         {/* Brand */}
         <div className="flex items-center gap-3">
           <Link
-            to={isAuthenticated ? (user?.role === 'host' ? '/host' : '/matches') : '/'}
+            to="/"
             className="text-2xl sm:text-3xl font-black uppercase tracking-widest text-[#DC143C] hover:text-[#FFFDD0] transition-colors"
           >
             Boondocks
@@ -48,6 +48,10 @@ export default function Navbar() {
         <nav className="hidden md:flex items-center gap-2 lg:gap-4">
           {isAuthenticated ? (
             <>
+              <NavLink to="/" className={navLinkStyle}>
+                Home
+              </NavLink>
+
               {isSeeker && (
                 <>
                   <NavLink to="/matches" className={navLinkStyle}>
@@ -125,6 +129,14 @@ export default function Navbar() {
         <div className="border-t-4 border-[#DC143C] bg-[#000000] px-4 py-4 md:hidden flex flex-col gap-3">
           {isAuthenticated ? (
             <>
+              <NavLink
+                to="/"
+                onClick={() => setMobileMenuOpen(false)}
+                className={navLinkStyle}
+              >
+                Home
+              </NavLink>
+
               {isSeeker && (
                 <>
                   <NavLink

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
+import MapPicker from "../components/MapPicker";
+import ChatPanel from "../components/ChatPanel";
 
 // Boondocks design tokens
 const C = { black: "#000000", red: "#DC143C", darkRed: "#8B0000", cream: "#FFFDD0" };
@@ -46,7 +48,8 @@ const AVAILABLE_AMENITIES = [
 const EMPTY_FORM = {
   title: "",
   type: "PG",
-  address: "",
+  address: "Mumbai, Maharashtra",
+  coordinates: [72.8777, 19.0760],
   rentPerHead: "",
   totalBeds: "",
   availableBeds: "",
@@ -56,7 +59,7 @@ const EMPTY_FORM = {
   guestPolicy: "occasional",
   sleepPolicy: "flexible",
   amenities: ["Wi-Fi", "RO Water"],
-  images: "",
+  images: [],
 };
 
 function Field({ label, children }) {
@@ -73,10 +76,45 @@ function PropertyForm({ onCreated }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const set = (e) => {
     const { name, value, type, checked } = e.target;
     setForm({ ...form, [name]: type === "checkbox" ? checked : value });
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("images", files[i]);
+    }
+    setUploadingImages(true);
+    setError("");
+    try {
+      const res = await api.post("/api/properties/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res.data?.urls) {
+        setForm((prev) => ({
+          ...prev,
+          images: Array.from(new Set([...(Array.isArray(prev.images) ? prev.images : []), ...res.data.urls])),
+        }));
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to upload image(s).");
+    } finally {
+      setUploadingImages(false);
+      e.target.value = "";
+    }
+  };
+
+  const removeImage = (indexToRemove) => {
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== indexToRemove),
+    }));
   };
 
   const toggleAmenity = (item) => {
@@ -105,6 +143,7 @@ function PropertyForm({ onCreated }) {
         type: form.type,
         location: {
           type: "Point",
+          coordinates: form.coordinates || [72.8777, 19.0760],
           address: form.address,
         },
         rentPerHead: Number(form.rentPerHead),
@@ -118,10 +157,7 @@ function PropertyForm({ onCreated }) {
           sleepPolicy: form.sleepPolicy,
         },
         amenities: form.amenities,
-        images: form.images
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
+        images: Array.isArray(form.images) ? form.images : [],
       });
       setForm(EMPTY_FORM);
       onCreated();
@@ -149,9 +185,31 @@ function PropertyForm({ onCreated }) {
         </select>
       </Field>
 
-      <Field label="Location (Address)">
-        <input name="address" value={form.address} onChange={set} required className="p-2" style={inputStyle} />
-      </Field>
+      {/* Interactive Leaflet Map Pin Picker for Location */}
+      <div className="md:col-span-2 flex flex-col gap-1 border-2 border-crimson p-3 bg-black">
+        <span className="font-bold text-sm text-cream uppercase">
+          📍 Property Location (Click Map to Drop Pin)
+        </span>
+        <MapPicker
+          coordinates={form.coordinates}
+          address={form.address}
+          showRadius={false}
+          height="280px"
+          onChange={({ coordinates, address }) => {
+            setForm((prev) => ({ ...prev, coordinates, address }));
+          }}
+        />
+        <label className="text-xs font-bold text-cream-dim mt-2 uppercase">Selected Address / Landmark:</label>
+        <input
+          name="address"
+          value={form.address}
+          onChange={set}
+          required
+          placeholder="Detailed street, building, area"
+          className="p-2"
+          style={inputStyle}
+        />
+      </div>
 
       <Field label="Rent per person (₹/month)">
         <input
@@ -246,9 +304,41 @@ function PropertyForm({ onCreated }) {
         </div>
       </div>
 
-      <Field label="Image URLs (comma separated)">
-        <input name="images" value={form.images} onChange={set} className="p-2" style={inputStyle} />
-      </Field>
+      {/* Local Image File Uploads Section (Multer) */}
+      <div className="md:col-span-2 border-2 border-crimson p-3 bg-black flex flex-col gap-2">
+        <label className="font-bold text-sm text-cream uppercase flex flex-col gap-1">
+          📸 Upload Property Images (Stored Locally):
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleFileUpload}
+            disabled={uploadingImages}
+            className="p-2 border-2 border-crimson bg-black text-cream text-xs file:border-2 file:border-cream file:bg-crimson file:text-cream file:font-black file:uppercase file:text-xs file:py-1 file:px-3 file:mr-3 file:cursor-pointer hover:file:bg-[#8B0000]"
+          />
+        </label>
+        {uploadingImages && (
+          <p className="text-xs text-crimson font-black animate-pulse">Uploading images to server...</p>
+        )}
+
+        {Array.isArray(form.images) && form.images.length > 0 && (
+          <div className="flex flex-wrap gap-3 mt-2">
+            {form.images.map((img, idx) => (
+              <div key={idx} className="relative group border-2 border-crimson w-24 h-20 bg-black overflow-hidden">
+                <img src={img} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => removeImage(idx)}
+                  className="absolute top-0 right-0 bg-crimson text-cream text-xs px-1.5 py-0.5 font-black hover:bg-black"
+                  title="Remove image"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <label className="flex items-center gap-3 font-bold self-end">
         <input
@@ -273,7 +363,7 @@ function PropertyForm({ onCreated }) {
 
       <button
         type="submit"
-        disabled={saving}
+        disabled={saving || uploadingImages}
         className="md:col-span-2 p-3 text-xl font-bold"
         style={{ ...blockBtn(C.cream, C.black), opacity: saving ? 0.6 : 1 }}
       >
@@ -289,6 +379,7 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
     title: property.title || "",
     type: property.type || "PG",
     address: property.location?.address || "",
+    coordinates: property.location?.coordinates || [72.8777, 19.0760],
     rentPerHead: property.rentPerHead || 0,
     totalBeds: property.totalBeds || 1,
     availableBeds: property.availableBeds || 0,
@@ -298,14 +389,49 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
     guestPolicy: property.rules?.guestPolicy || "occasional",
     sleepPolicy: property.rules?.sleepPolicy || "flexible",
     amenities: Array.isArray(property.amenities) ? property.amenities : [],
-    images: Array.isArray(property.images) ? property.images.join(", ") : "",
+    images: Array.isArray(property.images) ? property.images : [],
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const set = (e) => {
     const { name, value, type, checked } = e.target;
     setForm({ ...form, [name]: type === "checkbox" ? checked : value });
+  };
+
+  const handleFileUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("images", files[i]);
+    }
+    setUploadingImages(true);
+    setError("");
+    try {
+      const res = await api.post("/api/properties/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (res.data?.urls) {
+        setForm((prev) => ({
+          ...prev,
+          images: Array.from(new Set([...(Array.isArray(prev.images) ? prev.images : []), ...res.data.urls])),
+        }));
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to upload image(s).");
+    } finally {
+      setUploadingImages(false);
+      e.target.value = "";
+    }
+  };
+
+  const removeImage = (indexToRemove) => {
+    setForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== indexToRemove),
+    }));
   };
 
   const toggleAmenity = (item) => {
@@ -334,6 +460,7 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
         type: form.type,
         location: {
           type: "Point",
+          coordinates: form.coordinates || [72.8777, 19.0760],
           address: form.address,
         },
         rentPerHead: Number(form.rentPerHead),
@@ -347,10 +474,7 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
           sleepPolicy: form.sleepPolicy,
         },
         amenities: form.amenities,
-        images: form.images
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
+        images: Array.isArray(form.images) ? form.images : [],
       });
       onUpdated();
       onClose();
@@ -364,7 +488,7 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 overflow-y-auto">
       <div
-        className="w-full max-w-3xl border-4 border-crimson bg-black p-6 shadow-brutal my-8"
+        className="w-full max-w-3xl border-4 border-crimson bg-black p-6 shadow-brutal my-8 max-h-[90vh] overflow-y-auto"
         style={{ fontFamily: FONT }}
       >
         <div className="flex justify-between items-center mb-4 border-b-4 border-crimson pb-2">
@@ -386,9 +510,30 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
             </select>
           </Field>
 
-          <Field label="Address">
-            <input name="address" value={form.address} onChange={set} required className="p-2" style={inputStyle} />
-          </Field>
+          {/* Interactive Leaflet Map Pin Picker for Location */}
+          <div className="md:col-span-2 flex flex-col gap-1 border-2 border-crimson p-3 bg-black">
+            <span className="font-bold text-sm text-cream uppercase">
+              📍 Property Location (Click Map to Drop Pin)
+            </span>
+            <MapPicker
+              coordinates={form.coordinates}
+              address={form.address}
+              showRadius={false}
+              height="260px"
+              onChange={({ coordinates, address }) => {
+                setForm((prev) => ({ ...prev, coordinates, address }));
+              }}
+            />
+            <label className="text-xs font-bold text-cream-dim mt-2 uppercase">Selected Address / Landmark:</label>
+            <input
+              name="address"
+              value={form.address}
+              onChange={set}
+              required
+              className="p-2"
+              style={inputStyle}
+            />
+          </div>
 
           <Field label="Rent per person (₹/month)">
             <input
@@ -483,9 +628,41 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
             </div>
           </div>
 
-          <Field label="Image URLs (comma separated)">
-            <input name="images" value={form.images} onChange={set} className="p-2" style={inputStyle} />
-          </Field>
+          {/* Local Image File Uploads Section (Multer) */}
+          <div className="md:col-span-2 border-2 border-crimson p-3 bg-black flex flex-col gap-2">
+            <label className="font-bold text-sm text-cream uppercase flex flex-col gap-1">
+              📸 Upload Property Images (Stored Locally):
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleFileUpload}
+                disabled={uploadingImages}
+                className="p-2 border-2 border-crimson bg-black text-cream text-xs file:border-2 file:border-cream file:bg-crimson file:text-cream file:font-black file:uppercase file:text-xs file:py-1 file:px-3 file:mr-3 file:cursor-pointer hover:file:bg-[#8B0000]"
+              />
+            </label>
+            {uploadingImages && (
+              <p className="text-xs text-crimson font-black animate-pulse">Uploading images to server...</p>
+            )}
+
+            {Array.isArray(form.images) && form.images.length > 0 && (
+              <div className="flex flex-wrap gap-3 mt-2">
+                {form.images.map((img, idx) => (
+                  <div key={idx} className="relative group border-2 border-crimson w-24 h-20 bg-black overflow-hidden">
+                    <img src={img} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute top-0 right-0 bg-crimson text-cream text-xs px-1.5 py-0.5 font-black hover:bg-black"
+                      title="Remove image"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <label className="flex items-center gap-3 font-bold self-end">
             <input
@@ -512,7 +689,7 @@ function EditPropertyModal({ property, onClose, onUpdated }) {
             <button type="button" onClick={onClose} className="btn-ghost">
               Cancel
             </button>
-            <button type="submit" disabled={saving} className="btn-brutal">
+            <button type="submit" disabled={saving || uploadingImages} className="btn-brutal">
               {saving ? "Saving Changes…" : "Save Changes"}
             </button>
           </div>
@@ -553,9 +730,9 @@ function ApplicantInspectorModal({ requestId, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85">
       <div
-        className="w-full max-w-2xl border-4 border-crimson bg-black p-6 shadow-brutal my-8 text-cream"
+        className="w-full max-w-2xl max-h-[85vh] overflow-y-auto border-4 border-crimson bg-black p-6 shadow-brutal text-cream"
         style={{ fontFamily: FONT }}
       >
         <div className="flex justify-between items-start border-b-4 border-crimson pb-3 mb-4">
@@ -734,137 +911,6 @@ function RequestRow({ request, onDecide, onOpenChat, onInspect }) {
   );
 }
 
-/* ---------- Full Live Chat Panel with 3s Short-Polling ---------- */
-function ChatPanel({ request, onClose }) {
-  const [messages, setMessages] = useState(request.chatHistory || []);
-  const [text, setText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
-  const feedRef = useRef(null);
-  const meId = localStorage.getItem("user") ? JSON.parse(localStorage.getItem("user"))._id : null;
-
-  // Auto-scroll to bottom of messages
-  useEffect(() => {
-    feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages.length]);
-
-  // 3-second short-polling to fetch live conversation updates
-  useEffect(() => {
-    let isMounted = true;
-    const fetchChat = async () => {
-      try {
-        const { data } = await api.get(`/api/requests/${request._id}/chat`);
-        if (isMounted && data && Array.isArray(data.chatHistory)) {
-          setMessages(data.chatHistory);
-        }
-      } catch (err) {
-        console.warn("Chat polling error:", err?.response?.data?.message || err.message);
-      }
-    };
-
-    fetchChat();
-    const interval = setInterval(fetchChat, 3000);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [request._id]);
-
-  const sendMessage = async (e) => {
-    e.preventDefault();
-    const trimmed = text.trim();
-    if (!trimmed || sending) return;
-
-    setSending(true);
-    setError("");
-    try {
-      const { data } = await api.post(`/api/requests/${request._id}/message`, { message: trimmed });
-      setText("");
-      if (data && Array.isArray(data.chatHistory)) {
-        setMessages(data.chatHistory);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not send message.");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const seekerName = request.seekerId?.name || "Tenant";
-
-  return (
-    <div
-      className="p-4 mt-3 flex flex-col gap-3 border-4 border-crimson bg-black shadow-brutal"
-      style={{ fontFamily: FONT }}
-    >
-      <div className="flex justify-between items-center border-b-2 border-crimson pb-2">
-        <div>
-          <strong className="text-lg text-cream">Live Chat with {seekerName}</strong>
-          <p className="text-xs text-cream-dim">Auto-syncing every 3 seconds</p>
-        </div>
-        <button className="px-3 py-1 font-bold text-xs" style={blockBtn(C.cream, C.black)} onClick={onClose}>
-          Close Chat
-        </button>
-      </div>
-
-      {/* Messages Scrollable Area */}
-      <ol
-        ref={feedRef}
-        className="flex flex-col gap-3 max-h-80 overflow-y-auto p-3 border-2 border-crimson/50 bg-[#0a0a0a]"
-      >
-        {messages.length === 0 ? (
-          <li className="text-center text-sm text-cream-dim py-6">
-            No messages yet. Send a message to coordinate room viewing or rules!
-          </li>
-        ) : (
-          messages.map((m, i) => {
-            const senderIdStr = String(m.senderId?._id || m.senderId);
-            const isMine = meId ? senderIdStr === String(meId) : false;
-
-            return (
-              <li key={m._id || i} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                <div
-                  className={`max-w-[80%] border-2 p-2.5 ${
-                    isMine
-                      ? "border-cream bg-cream text-black shadow-[3px_3px_0_#DC143C]"
-                      : "border-crimson bg-crimson text-cream shadow-[3px_3px_0_#FFFDD0]"
-                  }`}
-                >
-                  <p className="whitespace-pre-wrap break-words text-sm font-bold">{m.message}</p>
-                  <p className="mt-1 text-[10px] opacity-75 text-right">
-                    {isMine ? "You" : seekerName},{" "}
-                    {new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
-              </li>
-            );
-          })
-        )}
-      </ol>
-
-      {/* Input Field Form */}
-      <form onSubmit={sendMessage} className="flex gap-2">
-        <input
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={`Message ${seekerName}...`}
-          className="flex-1 p-2 text-sm"
-          style={inputStyle}
-          maxLength={1000}
-        />
-        <button
-          type="submit"
-          disabled={!text.trim() || sending}
-          className="btn-brutal text-xs py-2 px-4 shrink-0"
-        >
-          {sending ? "Sending…" : "Send"}
-        </button>
-      </form>
-      {error && <p className="text-xs text-crimson font-bold">{error}</p>}
-    </div>
-  );
-}
-
 /* ---------- Page ---------- */
 export default function HostPage() {
   const [properties, setProperties] = useState([]);
@@ -958,6 +1004,19 @@ export default function HostPage() {
                       </button>
                     </div>
 
+                    {p.images && p.images.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto mt-3 py-1">
+                        {p.images.map((img, i) => (
+                          <img
+                            key={i}
+                            src={img}
+                            alt=""
+                            className="w-20 h-16 object-cover border-2 border-crimson"
+                          />
+                        ))}
+                      </div>
+                    )}
+
                     <p className="mt-2 text-sm">{p.location?.address || p.location}</p>
                     <p className="mt-2 font-bold text-lg text-crimson">
                       ₹{p.rentPerHead} per person · {p.availableBeds} of {p.totalBeds} beds free
@@ -993,7 +1052,13 @@ export default function HostPage() {
                               onOpenChat={setActiveChat}
                               onInspect={setInspectingRequestId}
                             />
-                            {activeChat?._id === r._id && <ChatPanel request={r} onClose={() => setActiveChat(null)} />}
+                            {activeChat?._id === r._id && (
+                              <ChatPanel
+                                request={r}
+                                onClose={() => setActiveChat(null)}
+                                onUpdate={load}
+                              />
+                            )}
                           </div>
                         ))}
                       </div>

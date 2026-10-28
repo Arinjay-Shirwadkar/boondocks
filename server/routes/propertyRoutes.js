@@ -1,8 +1,59 @@
 import express from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import Property from '../models/Property.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// Configure local multer storage in /server/uploads/
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `property-${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit per image
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed.'));
+    }
+  },
+});
+
+// @route   POST /api/properties/upload
+// @desc    Upload local property images via multer
+// @access  Private (Host)
+router.post('/upload', protect, upload.array('images', 10), (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ message: 'No image files provided.' });
+    }
+    const urls = req.files.map((f) => `/uploads/${f.filename}`);
+    res.json({ urls });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    res.status(500).json({ message: error.message || 'Image upload failed.' });
+  }
+});
 
 // @route   POST /api/properties
 // @desc    Create a new sharing PG or flat listing

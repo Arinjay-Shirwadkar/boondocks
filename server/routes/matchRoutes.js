@@ -12,13 +12,13 @@ router.get('/', protect, async (req, res) => {
   try {
     const user = req.user;
 
-    // Fetch all properties, populating host information
-    const properties = await Property.find().populate('hostId', 'name email phone');
+    // Fetch all properties with available beds > 0, populating host information
+    const properties = await Property.find({ availableBeds: { $gt: 0 } }).populate('hostId', 'name email phone');
 
     // Calculate match score and breakdown for each property
     const matches = properties
-      // Exclude properties where the logged in user is the host
-      .filter((prop) => String(prop.hostId?._id || prop.hostId) !== String(user._id))
+      // Exclude properties where the logged in user is the host and strictly filter out properties with <= 0 available beds
+      .filter((prop) => String(prop.hostId?._id || prop.hostId) !== String(user._id) && Number(prop.availableBeds) > 0)
       .map((property) => {
         const { matchScore, distanceKm, breakdown } = calculateMatchScore(user, property);
         return {

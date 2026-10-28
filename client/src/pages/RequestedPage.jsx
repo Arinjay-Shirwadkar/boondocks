@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 /* ------------------------------------------------------------------ */
 /* Requested page (seeker side)                                        */
@@ -171,13 +172,14 @@ function ChatDrawer({ request, meId, onClose, onSent, onReveal, revealBusy }) {
           )}
           {messages.map((m, i) => {
             const mine = String(m.senderId?._id ?? m.senderId) === String(meId);
+            const isHostSender = String(m.senderId?._id ?? m.senderId) === String(request.hostId?._id ?? request.hostId);
             return (
               <li key={m._id ?? i} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[80%] border-[3px] px-3 py-2 ${
-                    mine
-                      ? "border-[#FFFDD0] bg-[#FFFDD0] text-black shadow-[4px_4px_0_#DC143C]"
-                      : "border-[#DC143C] bg-[#DC143C] text-[#FFFDD0] shadow-[4px_4px_0_#FFFDD0]"
+                  className={`max-w-[80%] border-2 border-black p-2.5 shadow-[4px_4px_0_#000000] ${
+                    isHostSender
+                      ? "bg-gradient-to-r from-[#DC143C] to-[#8B0000] text-[#FFFDD0]"
+                      : "bg-gradient-to-r from-[#FFFDD0] to-[#F5F5DC] text-black"
                   }`}
                 >
                   <p className="whitespace-pre-wrap break-words">{m.message}</p>
@@ -272,12 +274,20 @@ function RequestCard({ request, onOpenChat }) {
 
 /* ------------------------------ Page ------------------------------- */
 export default function RequestedPage() {
+  const [searchParams] = useSearchParams();
   const [requests, setRequests] = useState([]);
   const [meId, setMeId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState(null);
   const [revealBusy, setRevealBusy] = useState(false);
+
+  useEffect(() => {
+    const qId = searchParams.get("requestId") || searchParams.get("openChat");
+    if (qId) {
+      setOpenId(qId);
+    }
+  }, [searchParams]);
 
   const load = useCallback(async () => {
     const data = await authFetch("/api/requests/seeker");

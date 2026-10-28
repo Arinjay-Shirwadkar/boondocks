@@ -9,12 +9,19 @@ import matchRoutes from './routes/matchRoutes.js';
 import requestRoutes from './routes/requestRoutes.js';
 
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 // Load environment variables from server/.env or root .env
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 dotenv.config();
+
+// Ensure local uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +36,9 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static uploads for local property images
+app.use('/uploads', express.static(uploadsDir));
 
 // Request logger for development
 if (process.env.NODE_ENV !== 'production') {

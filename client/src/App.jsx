@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import SeekerAcceptanceBanner from './components/SeekerAcceptanceBanner';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import LandingPage from './pages/LandingPage';
@@ -16,6 +17,7 @@ export default function App() {
     <AuthProvider>
       <div className="min-h-screen bg-[#000000] text-[#FFFDD0] flex flex-col font-comic">
         <Navbar />
+        <SeekerAcceptanceBanner />
         <div className="flex-1">
           <Routes>
             {/* Public routes */}

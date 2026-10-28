@@ -56,6 +56,17 @@ function Nav() {
 function ProfileCards() {
   return (
     <div className="relative mx-auto h-[430px] w-full max-w-[420px] select-none" aria-hidden="true">
+      <div className="pacman-run" aria-hidden="true">
+        <div className="pacman" />
+        <div className="pellets">
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </div>
+      </div>
+
       {/* host card, behind */}
       <div className="absolute right-0 top-10 w-[240px] rotate-[5deg] border-[3px] border-black bg-[#DC143C] p-3 shadow-[8px_8px_0_#FFFDD0]">
         <span className="absolute -top-4 right-3 border-2 border-black bg-[#FFFDD0] px-2 py-0.5 text-xs font-bold uppercase text-black">

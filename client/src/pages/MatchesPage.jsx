@@ -232,12 +232,26 @@ function Drawer({ match, requestStatus, onSend, onClose }) {
           </div>
 
           {cover && (
-            <img
-              src={cover}
-              alt=""
-              className="w-full h-52 object-cover border-4 border-crimson"
-              style={{ borderRadius: 0 }}
-            />
+            <div>
+              <img
+                src={cover}
+                alt=""
+                className="w-full h-52 object-cover border-4 border-crimson"
+                style={{ borderRadius: 0 }}
+              />
+              {property.images && property.images.length > 1 && (
+                <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+                  {property.images.map((img, i) => (
+                    <img
+                      key={i}
+                      src={imageUrl(img)}
+                      alt=""
+                      className="w-16 h-12 object-cover border-2 border-crimson shrink-0"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           <div className="flex flex-wrap items-center gap-3">
@@ -285,7 +299,11 @@ export default function MatchesPage() {
     setError('');
     try {
       const { data } = await api.get('/matches');
-      setMatches(Array.isArray(data) ? data : []);
+      // Strictly filter out properties where availableBeds <= 0 as a fallback
+      const availableMatches = (Array.isArray(data) ? data : []).filter(
+        (m) => Number(m.property?.availableBeds) > 0
+      );
+      setMatches(availableMatches);
     } catch (err) {
       setError(err.response?.data?.message || 'Couldn’t load your matches.');
     } finally {

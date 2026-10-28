@@ -19,7 +19,7 @@ export default function SignUpPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const [account, setAccount] = useState({ name: '', email: '', password: '', role: 'seeker' });
+  const [account, setAccount] = useState({ name: '', email: '', phone: '', password: '', role: 'seeker' });
   const [loc, setLoc] = useState({ area: 'Mumbai, Maharashtra', radiusKm: 5, coordinates: [72.8777, 19.0760] });
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
@@ -30,6 +30,7 @@ export default function SignUpPage() {
     if (step === 1) {
       if (!account.name.trim()) return 'Name is required.';
       if (!/^\S+@\S+\.\S+$/.test(account.email)) return 'Enter a valid email.';
+      if (!account.phone.trim()) return 'Phone number is required.';
       if (account.password.length < 8) return 'Password must be at least 8 characters.';
     }
     if (step === 2 && !canSkipLocation && !loc.area.trim()) {
@@ -81,7 +82,7 @@ export default function SignUpPage() {
     <main className="min-h-screen flex items-start justify-center px-4 py-10">
       <div className="w-full max-w-2xl">
         <h1 className="text-5xl font-black uppercase text-crimson mb-1">Boondocks</h1>
-        <p className="mb-6 font-bold text-cream-dim">Find your people. Then find the bed.</p>
+        <p className="mb-6 font-bold text-cream-dim">Find your people.</p>
 
         {/* progress */}
         <div className="flex gap-2 mb-6">
@@ -117,6 +118,13 @@ export default function SignUpPage() {
                 placeholder="Email"
                 value={account.email}
                 onChange={(e) => setAccount({ ...account, email: e.target.value })}
+              />
+              <input
+                className="input-brutal"
+                type="tel"
+                placeholder="Phone number (e.g. 9876543210)"
+                value={account.phone}
+                onChange={(e) => setAccount({ ...account, phone: e.target.value })}
               />
               <input
                 className="input-brutal"

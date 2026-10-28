@@ -42,6 +42,14 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ message: 'An account with this email already exists.' });
     }
 
+    const cleanedPhone = phone ? String(phone).trim() : undefined;
+    if (cleanedPhone) {
+      const existingPhone = await User.findOne({ phone: cleanedPhone });
+      if (existingPhone) {
+        return res.status(400).json({ message: 'An account with this phone number already exists.' });
+      }
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -50,7 +58,7 @@ router.post('/signup', async (req, res) => {
       email: email.toLowerCase(),
       password: hashedPassword,
       role,
-      phone: phone || '',
+      phone: cleanedPhone || undefined,
       area: area || location?.address || '',
       location: location || { address: area || '' },
       radiusKm: radiusKm || 5,
@@ -74,24 +82,31 @@ router.post('/signup', async (req, res) => {
 });
 
 // @route   POST /api/auth/login
-// @desc    Authenticate user & get token
+// @desc    Authenticate user via Email OR Phone & get token
 // @access  Public
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, loginIdentifier } = req.body;
+    const identifier = (loginIdentifier || email || '').trim();
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required.' });
+    if (!identifier || !password) {
+      return res.status(400).json({ message: 'Email or phone number and password are required.' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    // Allow logging in by entering EITHER phone number OR email
+    const user = await User.findOne({
+      $or: [
+        { email: identifier.toLowerCase() },
+        { phone: identifier },
+      ],
+    });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password.' });
+      return res.status(401).json({ message: 'Invalid email/phone or password.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid email or password.' });
+      return res.status(401).json({ message: 'Invalid email/phone or password.' });
     }
 
     const token = generateToken(user._id);
