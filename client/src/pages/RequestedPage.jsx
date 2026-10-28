@@ -297,10 +297,10 @@ export default function RequestedPage() {
     })();
   }, [load]);
 
-  // refresh while chat is open so host replies and consent show up (no websockets in v1)
+  // refresh while chat is open so host replies and consent show up (every 3 seconds)
   useEffect(() => {
     if (!openId) return;
-    const t = setInterval(() => load().catch(() => {}), 5000);
+    const t = setInterval(() => load().catch(() => {}), 3000);
     return () => clearInterval(t);
   }, [openId, load]);
 

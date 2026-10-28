@@ -104,5 +104,91 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// @route   PUT /api/properties/:id
+// @desc    Update listing details (rent, beds, rules, amenities, etc.)
+// @access  Private (Property Host)
+router.put('/:id', protect, async (req, res) => {
+  try {
+    const property = await Property.findById(req.params.id);
+    if (!property) {
+      return res.status(404).json({ message: 'Property not found.' });
+    }
+
+    if (String(property.hostId) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized to edit this listing.' });
+    }
+
+    const {
+      title,
+      type,
+      location,
+      rentPerHead,
+      totalBeds,
+      availableBeds,
+      rules,
+      amenities,
+      images,
+    } = req.body;
+
+    if (title !== undefined) property.title = title;
+    if (type !== undefined) property.type = type;
+    if (location !== undefined) {
+      property.location = {
+        type: 'Point',
+        coordinates: location.coordinates || property.location?.coordinates,
+        address: location.address || property.location?.address || '',
+      };
+    }
+
+    if (totalBeds !== undefined) {
+      const total = Number(totalBeds);
+      if (isNaN(total) || total < 1) {
+        return res.status(400).json({ message: 'Total beds must be at least 1.' });
+      }
+      property.totalBeds = total;
+    }
+
+    if (availableBeds !== undefined) {
+      const avail = Number(availableBeds);
+      if (isNaN(avail) || avail < 0) {
+        return res.status(400).json({ message: 'Available beds cannot be negative.' });
+      }
+      if (avail > property.totalBeds) {
+        return res.status(400).json({ message: "Available beds cannot exceed total beds." });
+      }
+      property.availableBeds = avail;
+    }
+
+    if (rentPerHead !== undefined) {
+      const rent = Number(rentPerHead);
+      if (isNaN(rent) || rent < 0) {
+        return res.status(400).json({ message: 'Rent must be a valid positive number.' });
+      }
+      property.rentPerHead = rent;
+    }
+
+    if (rules !== undefined) {
+      property.rules = {
+        ...property.rules.toObject(),
+        ...rules,
+      };
+    }
+
+    if (amenities !== undefined) {
+      property.amenities = Array.isArray(amenities) ? amenities : [];
+    }
+
+    if (images !== undefined) {
+      property.images = Array.isArray(images) ? images : [];
+    }
+
+    await property.save();
+    res.json(property);
+  } catch (error) {
+    console.error('Update property error:', error);
+    res.status(500).json({ message: error.message || 'Server error updating property.' });
+  }
+});
+
 export default router;
 

@@ -18,14 +18,19 @@ const propertySchema = new mongoose.Schema(
       default: 'PG',
     },
     location: {
-      address: {
+      type: {
         type: String,
-        required: [true, 'Address is required'],
-        trim: true,
+        enum: ['Point'],
+        default: 'Point',
       },
       coordinates: {
         type: [Number], // [longitude, latitude]
         default: undefined,
+      },
+      address: {
+        type: String,
+        required: [true, 'Address is required'],
+        trim: true,
       },
     },
     rentPerHead: {
@@ -51,7 +56,7 @@ const propertySchema = new mongoose.Schema(
       },
       viceTolerance: {
         type: String,
-        enum: ['none', 'alcohol', 'smoking', 'all'],
+        enum: ['none', 'alcohol', 'smoking', 'all', 'all-legal'],
         default: 'none',
       },
       petsAllowed: {
@@ -71,7 +76,7 @@ const propertySchema = new mongoose.Schema(
     },
     amenities: {
       type: [String],
-      default: ['High-speed WiFi', 'RO Water', 'Cleaning Service'],
+      default: ['Wi-Fi', 'RO Water', 'Cleaning Service'],
     },
     images: {
       type: [String],
@@ -83,6 +88,7 @@ const propertySchema = new mongoose.Schema(
   }
 );
 
+propertySchema.index({ 'location.coordinates': '2dsphere' });
+
 const Property = mongoose.model('Property', propertySchema);
 export default Property;
-

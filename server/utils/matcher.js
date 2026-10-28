@@ -72,39 +72,89 @@ export function calculateMatchScore(user, property) {
     detail: foodDetail,
   });
 
-  // 2. Vices Match (Alcohol, Smoking, Drugs)
+  // 2. Vices Match (Alcohol, Smoking, All-Legal - Drugs completely purged)
   const vicesWeight = Number(userWeights.vices) || 3;
-  const uAlcohol = Boolean(userPref.alcohol);
-  const uSmoking = Boolean(userPref.smoking);
-  const uDrugs = Boolean(userPref.drugs);
-  const pVice = rules.viceTolerance || 'none';
+  
+  // Resolve user vice choice: 'none', 'alcohol', 'smoking', 'all-legal'
+  let uVice = userPref.vices;
+  if (!uVice) {
+    if (userPref.alcohol && userPref.smoking) uVice = 'all-legal';
+    else if (userPref.smoking) uVice = 'smoking';
+    else if (userPref.alcohol) uVice = 'alcohol';
+    else uVice = 'none';
+  }
 
-  const allowsAlcohol = pVice === 'alcohol' || pVice === 'all';
-  const allowsSmoking = pVice === 'smoking' || pVice === 'all';
-  const allowsDrugs = pVice === 'all';
+  let pVice = rules.viceTolerance || 'none';
+  if (pVice === 'all') pVice = 'all-legal';
 
-  let alcScore = 100;
-  if (uAlcohol && !allowsAlcohol) alcScore = 0;
-  else if (!uAlcohol && allowsAlcohol) alcScore = 85;
-
-  let smkScore = 100;
-  if (uSmoking && !allowsSmoking) smkScore = 0;
-  else if (!uSmoking && allowsSmoking) smkScore = 80;
-
-  let drgScore = 100;
-  if (uDrugs && !allowsDrugs) drgScore = 0;
-  else if (!uDrugs && allowsDrugs) drgScore = 75;
-
-  const vicesFit = Math.round((alcScore + smkScore + drgScore) / 3);
+  let vicesFit = 100;
   let vicesStatus = 'compatible';
-  let vicesDetail = 'Vice habits align well';
+  let vicesDetail = 'Vice tolerance aligns';
 
-  if (vicesFit < 60) {
-    vicesStatus = 'conflict';
-    vicesDetail = `House vice policy (${pVice}) conflicts with your habits`;
-  } else if (vicesFit < 85) {
-    vicesStatus = 'neutral';
-    vicesDetail = `Partial vice alignment with house policy (${pVice})`;
+  if (pVice === 'all-legal') {
+    if (uVice === 'none') {
+      vicesFit = 85;
+      vicesStatus = 'neutral';
+      vicesDetail = 'House allows alcohol & smoking; your preference is vice-free';
+    } else {
+      vicesFit = 100;
+      vicesStatus = 'compatible';
+      vicesDetail = 'Legal vice tolerance aligns with your habits';
+    }
+  } else if (pVice === 'none') {
+    if (uVice === 'none') {
+      vicesFit = 100;
+      vicesStatus = 'compatible';
+      vicesDetail = 'Strictly vice-free home';
+    } else if (uVice === 'alcohol') {
+      vicesFit = 25;
+      vicesStatus = 'conflict';
+      vicesDetail = 'House does not permit alcohol';
+    } else if (uVice === 'smoking') {
+      vicesFit = 15;
+      vicesStatus = 'conflict';
+      vicesDetail = 'House strictly prohibits smoking';
+    } else {
+      vicesFit = 15;
+      vicesStatus = 'conflict';
+      vicesDetail = 'House does not permit alcohol or smoking';
+    }
+  } else if (pVice === 'alcohol') {
+    if (uVice === 'none') {
+      vicesFit = 90;
+      vicesStatus = 'compatible';
+      vicesDetail = 'Alcohol permitted on premises';
+    } else if (uVice === 'alcohol') {
+      vicesFit = 100;
+      vicesStatus = 'compatible';
+      vicesDetail = 'Alcohol allowed on premises';
+    } else if (uVice === 'smoking') {
+      vicesFit = 20;
+      vicesStatus = 'conflict';
+      vicesDetail = 'House prohibits smoking';
+    } else {
+      vicesFit = 55;
+      vicesStatus = 'conflict';
+      vicesDetail = 'House allows alcohol but strictly prohibits smoking';
+    }
+  } else if (pVice === 'smoking') {
+    if (uVice === 'none') {
+      vicesFit = 85;
+      vicesStatus = 'neutral';
+      vicesDetail = 'Smoking permitted on premises';
+    } else if (uVice === 'smoking') {
+      vicesFit = 100;
+      vicesStatus = 'compatible';
+      vicesDetail = 'Smoking permitted on premises';
+    } else if (uVice === 'alcohol') {
+      vicesFit = 25;
+      vicesStatus = 'conflict';
+      vicesDetail = 'House prohibits alcohol';
+    } else {
+      vicesFit = 55;
+      vicesStatus = 'conflict';
+      vicesDetail = 'House allows smoking but prohibits alcohol';
+    }
   }
 
   breakdown.push({
@@ -115,7 +165,59 @@ export function calculateMatchScore(user, property) {
     detail: vicesDetail,
   });
 
-  // 3. Pets Match
+  // 3. Price / Budget Match
+  const priceWeight = Number(userWeights.price) || 3;
+  const minPrice = userPref.minPrice != null ? Number(userPref.minPrice) : 3000;
+  const maxPrice = userPref.maxPrice != null ? Number(userPref.maxPrice) : 30000;
+  const rent = Number(property.rentPerHead) || 0;
+
+  let priceFit = 100;
+  let priceStatus = 'compatible';
+  let priceDetail = `Within budget range (₹${rent.toLocaleString('en-IN')}/mo)`;
+
+  if (rent <= maxPrice) {
+    if (rent >= minPrice) {
+      priceFit = 100;
+      priceStatus = 'compatible';
+      priceDetail = `Within your budget (₹${rent.toLocaleString('en-IN')} / person)`;
+    } else {
+      priceFit = 100;
+      priceStatus = 'compatible';
+      priceDetail = `Below your min budget (₹${rent.toLocaleString('en-IN')} / person) - great value`;
+    }
+  } else {
+    // Exceeds max budget
+    const diff = rent - maxPrice;
+    const overshootRatio = maxPrice > 0 ? diff / maxPrice : 1;
+
+    if (overshootRatio <= 0.1) {
+      priceFit = 80;
+      priceStatus = 'neutral';
+      priceDetail = `Slightly above max budget by ₹${diff.toLocaleString('en-IN')}`;
+    } else if (overshootRatio <= 0.25) {
+      priceFit = 55;
+      priceStatus = 'conflict';
+      priceDetail = `Exceeds max budget by ₹${diff.toLocaleString('en-IN')}`;
+    } else if (overshootRatio <= 0.5) {
+      priceFit = 30;
+      priceStatus = 'conflict';
+      priceDetail = `Exceeds max budget by ₹${diff.toLocaleString('en-IN')}`;
+    } else {
+      priceFit = 10;
+      priceStatus = 'conflict';
+      priceDetail = `Significantly exceeds max budget (₹${rent.toLocaleString('en-IN')} vs max ₹${maxPrice.toLocaleString('en-IN')})`;
+    }
+  }
+
+  breakdown.push({
+    category: 'price',
+    weight: priceWeight,
+    score: priceFit,
+    status: priceStatus,
+    detail: priceDetail,
+  });
+
+  // 4. Pets Match
   const petsWeight = Number(userWeights.pets) || 3;
   const uPets = Boolean(userPref.pets);
   const pPets = Boolean(rules.petsAllowed);
@@ -150,7 +252,7 @@ export function calculateMatchScore(user, property) {
     detail: petsDetail,
   });
 
-  // 4. Guests Match
+  // 5. Guests Match
   const guestsWeight = Number(userWeights.guests) || 3;
   const uGuests = userPref.guests || 'occasional';
   const pGuests = rules.guestPolicy || 'occasional';
@@ -182,7 +284,7 @@ export function calculateMatchScore(user, property) {
     detail: guestsDetail,
   });
 
-  // 5. Sleep Schedule Match
+  // 6. Sleep Schedule Match
   const sleepWeight = Number(userWeights.sleepTime) || 3;
   const uSleep = userPref.sleepTime || 'early-bird';
   const pSleep = rules.sleepPolicy || 'flexible';
@@ -216,22 +318,27 @@ export function calculateMatchScore(user, property) {
     detail: sleepDetail,
   });
 
-  // Weighted score calculation
-  const totalWeight = foodWeight + vicesWeight + petsWeight + guestsWeight + sleepWeight;
+  // Total Weighted score calculation
+  const totalWeight = foodWeight + vicesWeight + priceWeight + petsWeight + guestsWeight + sleepWeight;
   const weightedSum =
     foodWeight * foodFit +
     vicesWeight * vicesFit +
+    priceWeight * priceFit +
     petsWeight * petsFit +
     guestsWeight * guestsFit +
     sleepWeight * sleepFit;
 
   const matchScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 50;
 
-  // Calculate distance
-  const distanceKm = calculateDistanceKm(
-    user.location?.coordinates,
-    property.location?.coordinates
-  );
+  // Extract coordinates supporting both [lng, lat] and { coordinates: [lng, lat] }
+  const uCoords = Array.isArray(user.location)
+    ? user.location
+    : user.location?.coordinates;
+  const pCoords = Array.isArray(property.location)
+    ? property.location
+    : property.location?.coordinates;
+
+  const distanceKm = calculateDistanceKm(uCoords, pCoords);
 
   return {
     matchScore: Math.max(0, Math.min(100, matchScore)),
@@ -239,4 +346,3 @@ export function calculateMatchScore(user, property) {
     breakdown,
   };
 }
-

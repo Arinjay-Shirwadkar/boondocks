@@ -6,6 +6,7 @@ import api from '../api';
 const CATEGORY_LABELS = {
   food: 'Food',
   vices: 'Vices',
+  price: 'Budget',
   pets: 'Pets',
   guests: 'Guests',
   sleepTime: 'Sleep time',
